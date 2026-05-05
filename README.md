@@ -1,13 +1,13 @@
 # VeraRetouch
 
 ## 🗓️ To Do List
-- [x] 🔴 Release inference code.
+- [x] Release inference code.
 - [ ] 🔴 Release model weights.
 - [ ] 🔴 Release iOS toy deployment.
 
 ## 🚀 Quick Start
 
-### Environment
+### ⚙️ Environment
 ```bash
 # Clone the repository
 git clone https://github.com/OpenVeraTeam/VeraRetouch.git
@@ -19,11 +19,11 @@ conda activate vera-retouch
 pip install -r requirements.txt
 ```
 
-### Pretrained Model
+### ☕ Pretrained Model
 Download our pretrained weights from [HuggingFace](https://huggingface.co/Gyh68/VeraRetouch/tree/main).
 You can put the pretrained model to ./checkpoints
 
-### Inference
+### 🖥️ Inference
 Our model supports three inference modes:
 Auto Retouch: Only an image is input.
 ```bash
