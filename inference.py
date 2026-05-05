@@ -142,7 +142,7 @@ if __name__ == "__main__":
     parser.add_argument("--model-path", type=str, default=f"/root/autodl-tmp/code/checkpoints/VeraRetouch")
     parser.add_argument("--config_add_path", type=str, default="./configs/infer_config.yaml")
     parser.add_argument("--mode", type=str, default="auto", help="You have to choose one of mode from auto, style and param")
-    parser.add_argument("--img_paths", type=str, nargs='*', default=["./data_samples/input/duck.jpg", "./data_samples/input/sample_flower.jpg"], help="input image paths, multiple paths are supported")
+    parser.add_argument("--img_paths", type=str, nargs='*', default=["./data_samples/input/sample_flower.jpg"], help="input image paths, multiple paths are supported")
     parser.add_argument("--prompt", type=str, default="I want a dreamy bright pink style.", help="style prompt(only 'style' mode used)")
     parser.add_argument("--instruction_path", type=str, default="./data_samples/param.json", help="retourch operator parameters(only 'param' mode used)")
     parser.add_argument("--save_dir", type=str, default=f"./data_samples/output/")
@@ -153,10 +153,6 @@ if __name__ == "__main__":
     parser.add_argument("--chunk", type=int, default=-1, help="Enable when GPU memory is insufficient. The renderer will process large images in chunks. Recommended value: 262144 (512*512)")
     parser.add_argument("--batch_size", type=int, default=1, help="batch size")
     args = parser.parse_args()
-
-    # dir
-    # input_dir = "/root/autodl-tmp/VeraRetouch/data_samples/example/unsplash_1"
-    # args.img_paths = [os.path.join(input_dir, f) for f in os.listdir(input_dir)]
        
     # check mode
     if args.mode in ["auto", "style", "param"]:
