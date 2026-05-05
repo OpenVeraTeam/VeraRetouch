@@ -25,7 +25,8 @@ You can put the pretrained model to ./checkpoints
 
 ### 🖥️ Inference
 Our model supports three inference modes:
-Auto Retouch: Only an image is input.
+
+- Auto Retouch: Only an image is input.
 ```bash
 python inference.py --mode auto \
                     --model-path ./checkpoints/VeraRetouch    # the pretrained model path \
@@ -34,7 +35,7 @@ python inference.py --mode auto \
                     --chunk -1    # Enable when GPU memory is insufficient. The renderer will process large images in chunks. Recommended value: 262144 (512*512), enabling chunking will reduce inference speed. \
                     --batch_size 1    # Support batch inference
 ```
-Style Retouch: An image and user prompt are input.
+- Style Retouch: An image and user prompt are input.
 ```bash
 python inference.py --mode style \
                     --prompt "I want a dreamy bright pink style."    # style user prompt(only 'style' mode used) \
@@ -44,7 +45,7 @@ python inference.py --mode style \
                     --chunk -1    # Enable when GPU memory is insufficient. The renderer will process large images in chunks. Recommended value: 262144 (512*512), enabling chunking will reduce inference speed. \
                     --batch_size 1    # Support batch inference
 ```
-Param Retouch: An image and retouching operator parameters are input.
+- Param Retouch: An image and retouching operator parameters are input.
 ```bash
 python inference.py --mode style \
                     --instruction_path ./data_samples/param.json    # retourch operator parameters(only 'param' mode used) \
