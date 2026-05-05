@@ -37,7 +37,7 @@ python inference.py --mode auto \
 Style Retouch: An image and user prompt are input.
 ```bash
 python inference.py --mode style \
-                    --prompt "I want a dreamy bright pink style."    # style user prompt(only 'style' mode used)
+                    --prompt "I want a dreamy bright pink style."    # style user prompt(only 'style' mode used) \
                     --model-path ./checkpoints/VeraRetouch    # the pretrained model path \
                     --img_paths ./data_samples/input/sample_flower.jpg    # input image paths, multiple paths are supported \
                     --save_dir ./data_samples/output/    # output texts and images save path \
@@ -47,7 +47,7 @@ python inference.py --mode style \
 Param Retouch: An image and retouching operator parameters are input.
 ```bash
 python inference.py --mode style \
-                    --instruction_path ./data_samples/param.json    # retourch operator parameters(only 'param' mode used)
+                    --instruction_path ./data_samples/param.json    # retourch operator parameters(only 'param' mode used) \
                     --model-path ./checkpoints/VeraRetouch    # the pretrained model path \
                     --img_paths ./data_samples/input/sample_flower.jpg    # input image paths, multiple paths are supported \
                     --save_dir ./data_samples/output/    # output texts and images save path \
