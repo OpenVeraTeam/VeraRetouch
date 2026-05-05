@@ -1,0 +1,34 @@
+CONTROLLER_HEART_BEAT_EXPIRATION = 30
+WORKER_HEART_BEAT_INTERVAL = 15
+
+LOGDIR = "."
+
+# Model Constants
+IGNORE_INDEX = -100
+IMAGE_TOKEN_INDEX = -200
+DEFAULT_IMAGE_TOKEN = "<image>"
+DEFAULT_IMAGE_PATCH_TOKEN = "<im_patch>"
+DEFAULT_IM_START_TOKEN = "<im_start>"
+DEFAULT_IM_END_TOKEN = "<im_end>"
+IMAGE_PLACEHOLDER = "<image-placeholder>"
+DEFAULT_RETOUCH_START_TOKEN = "<retouch_start>"
+DEFAULT_RETOUCH_END_TOKEN = "<retouch_end>"
+DEFAULT_RETOUCH_OCCUPY_TOKEN = "<retouch_occ>"
+DEFAULT_RETOUCH_LIGHT_TOKEN = "<retouch_light>"
+DEFAULT_RETOUCH_COLORTEMP_TOKEN = "<retouch_color&temp>"
+DEFAULT_RETOUCH_COLORMIXER_TOKEN = "<retouch_colormixer>"
+PROBLEM_LIGHT_START_TOKEN = "<problem_light_start>"
+PROBLEM_GOBAL_COLOR_START_TOKEN = "<problem_globalcolor_start>"
+PROBLEM_SPECIFIC_COLOR_START_TOKEN = "<problem_specificcolor_start>"
+PROBLEM_LIGHT_END_TOKEN = "<problem_light_end>"
+PROBLEM_GOBAL_COLOR_END_TOKEN = "<problem_globalcolor_end>"
+PROBLEM_SPECIFIC_COLOR_END_TOKEN = "<problem_specificcolor_end>"
+PLAN_LIGHT_START_TOKEN = "<plan_light_start>"
+PLAN_GOBAL_COLOR_START_TOKEN = "<plan_globalcolor_start>"
+PLAN_SPECIFIC_COLOR_START_TOKEN = "<plan_specificcolor_start>"
+PLAN_LIGHT_END_TOKEN = "<plan_light_end>"
+PLAN_GOBAL_COLOR_END_TOKEN = "<plan_globalcolor_end>"
+PLAN_SPECIFIC_COLOR_END_TOKEN = "<plan_specificcolor_end>"
+TASK_AUTO_RETOUCH_TOKEN = "<Auto_Retouch_Task>"
+TASK_STYLE_RETOUCH_TOKEN = "<Style_Retouch_Task>"
+TASK_PROFESSIONAL_RETOUCH_TOKEN = "<Professional_Retouch_Task>"

@@ -1,0 +1,4 @@
+retouch_decoder_name: RetouchRenderer_Resnet18Encoder_InputCatMixedCBAM
+retouch_head_in_dim: 2688
+retouch_head_hidden_dim: 1344
+retouch_head_out_dim: 2688
