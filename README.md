@@ -1,4 +1,29 @@
-# VeraRetouch
+<div align="center">
+
+
+<h1>VeraRetouch: A Lightweight Fully Differentiable Framework for Multi-Task Reasoning Photo Retouching</h1>
+
+<div>
+    <a href="https://Apollo-Yi.github.io" target="_blank">Yihong Guo</a><sup>1</sup>&emsp;
+    <a href="https://youweilyu.github.io/" target="_blank">Youwei Lyu</a><sup>2</sup>&emsp;
+    <a href="https://me.jeffreet.com/" target="_blank">Jiajun Tang</a><sup>2</sup>&emsp;
+    <a href="https://github.com/OpenVeraTeam/VeraRetouch" target="_blank">Yizhuo Zhou</a><sup>1</sup>&emsp;
+    <a href="https://github.com/OpenVeraTeam/VeraRetouch" target="_blank">Hongliang Wang</a><sup>3</sup>&emsp;
+    <a href="https://scholar.google.com/citations?hl=zh-CN&user=Pcsml4oAAAAJ" target="_blank">Jinwei Chen</a><sup>2</sup>&emsp;
+    <a href="https://scholar.google.com/citations?user=kj5HiGgAAAAJ&hl=en" target="_blank">Changqing Zou</a><sup>1†</sup>&emsp;
+    <a href="https://fqnchina.github.io/" target="_blank">Qingnan Fan</a><sup>2</sup>
+</div>
+<div>
+    <sup>1</sup>Zhejiang University, <sup>2</sup>vivo BlueImage Lab, <sup>3</sup>University of Chinese Academy of Sciences
+</div>
+
+<h4>
+<p align="center">
+<a href="https://arxiv.org/abs/2604.27375">📄 arXiv Paper</a> &nbsp; 
+<!-- <a href="waiting to write">🔗 Project Page</a> &nbsp; -->
+</p>
+</h4>
+</div> 
 
 ## 🗓️ To Do List
 - [x] Release inference code.
