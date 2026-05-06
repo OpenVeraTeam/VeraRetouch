@@ -17,17 +17,15 @@
     <sup>1</sup>Zhejiang University, <sup>2</sup>vivo BlueImage Lab, <sup>3</sup>University of Chinese Academy of Sciences
 </div>
 
-<h4>
-<p align="center">
-<a href="https://arxiv.org/abs/2604.27375">📄 arXiv Paper</a> &nbsp; 
-<!-- <a href="waiting to write">🔗 Project Page</a> &nbsp; -->
-</p>
-</h4>
+&nbsp;&nbsp;<br>
+<a href='https://arxiv.org/abs/2604.27375'><img src='https://img.shields.io/badge/arXiv-2411.18263-b31b1b.svg'></a> &nbsp;&nbsp;
+
 </div> 
 
 ## 🗓️ To Do List
 - [x] Release inference code.
 - [x] Release model weights.
+- [x] Release Encoder-Renderer inference code and weights.
 - [ ] 🔴 Release iOS toy deployment.
 
 ## 🚀 Quick Start
@@ -46,9 +44,12 @@ pip install -r requirements.txt
 
 ### ☕ Pretrained Model
 Download our pretrained weights from [HuggingFace](https://huggingface.co/Gyh68/VeraRetouch/tree/main).
+
 You can put the pretrained model to ./checkpoints
 
-### 🖥️ Inference
+If you want to try "Reference Retouch" of Retouch Encoder-Renderer. please download Encoder-Renderer pretrained weights from [this HuggingFace link](https://huggingface.co/Gyh68/VeraRetouch.Encoder_Renderer/blob/main/encoder_renderer.pth).
+
+### 🎨 VeraRetouch Inference
 Our model supports three inference modes:
 
 - Auto Retouch: Only an image is input.
@@ -81,5 +82,36 @@ python inference.py --mode style \
                     --batch_size 1    # Support batch inference
 ```
 
+### 🖥️ Retouch Encoder-Renderer Inference
+The Retouch Encoder-Renderer enables image retouching with reference based on either a pair of retouching images or a single target retouching image.
+- Reference-based retouching with a pair of retouching images
+```bash
+python infer_ref_retouch.py --pretrained_path ./checkpoints/encoder_renderer.pth    # Path to the pretrained model weights \
+                            --output_dir ./data_samples/ref_outputs    # Directory to save the final retouched output images \
+                            --ref_before_img_path ./data_samples/ref_inputs/ref/before.jpg   # File path of the original unretouched reference image \
+                            --ref_after_img_path ./data_samples/ref_inputs/ref/after.jpg    # File path of the retouched reference target image \
+                            --input_img_path ./data_samples/ref_inputs/sample.jpg    # File path of the input image to be retouched \
+                            --chunk -1    # Enable when GPU memory is insufficient. The renderer will process large images in chunks. Recommended value: 262144 (512*512), enabling chunking will reduce inference speed. \
+```
+- Reference-based retouching with a single target retouching image (referencing the processing paradigm of paper [InstantRetouch: Personalized Image Retouching without Test-time Fine-tuning Using an Asymmetric Auto-Encoder](https://arxiv.org/abs/2602.17044): replace the pre-retouching image in the reference image pair with the input image)
+```bash
+python infer_ref_retouch.py --pretrained_path ./checkpoints/encoder_renderer.pth    # Path to the pretrained model weights \
+                            --output_dir ./data_samples/ref_outputs    # Directory to save the final retouched output images \
+                            --ref_before_img_path ./data_samples/ref_inputs/sample.jpg   # !!! Keep same with input_img_path.!!! \
+                            --ref_after_img_path ./data_samples/ref_inputs/ref/after.jpg    # File path of the retouched reference target image \
+                            --input_img_path ./data_samples/ref_inputs/sample.jpg    # File path of the input image to be retouched \
+                            --chunk -1    # Enable when GPU memory is insufficient. The renderer will process large images in chunks. Recommended value: 262144 (512*512), enabling chunking will reduce inference speed. \
+```
+
 ## 📲 Toy IOS depolyment
 Comming soon...
+
+## <a name="citation"></a>🎓 Citation
+```
+@article{guo2026veraretouch,
+  title={VeraRetouch: A Lightweight Fully Differentiable Framework for Multi-Task Reasoning Photo Retouching},
+  author={Guo, Yihong and Lyu, Youwei and Tang, Jiajun and Zhou, Yizhuo and Wang, Hongliang and Chen, Jinwei and Zou, Changqing and Fan, Qingnan},
+  journal={arXiv preprint arXiv:2604.27375},
+  year={2026}
+}
+```
