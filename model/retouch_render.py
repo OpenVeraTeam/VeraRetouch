@@ -302,7 +302,7 @@ class RetouchRenderer(nn.Module):
         else:     
             self.decoder = ConditionalMLPDecoder(decoder_args.latent_dim, decoder_args.hidden_dims, decoder_args.cond_method, decoder_args.final_act)
 
-    def forward(self, x, ref_o, ref_t, mask):
+    def forward(self, x, ref_o, ref_t, mask, chunk=-1):
         if self.cat3:
             control_feat = self.encoder(ref_o, ref_t, x)
         else:
@@ -311,8 +311,12 @@ class RetouchRenderer(nn.Module):
         if len(control_feat.shape) == 3: # Dual AdaLN
             mask_expend = mask_expend.unsqueeze(1).expand(-1, 2, -1)
         control_feat = control_feat * mask_expend
-        output = self.decoder(x, control_feat)
+        if chunk > 0:
+            output = self.decoder.forward_chunk(x, control_feat, chunk)
+        else:
+            output = self.decoder(x, control_feat)
         return output
+    
 
 class ParamPredWrap(nn.Module):
     def __init__(self, retouch_renderer, num_params, latent_dim):
