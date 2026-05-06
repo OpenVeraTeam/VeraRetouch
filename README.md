@@ -28,6 +28,10 @@
 - [x] Release Retouch Encoder-Renderer inference code and weights.
 - [ ] 🔴 Release iOS toy deployment.
 
+## 🎬 <a name="overview"></a>Overview
+
+![overview](assets/teaser.png)
+
 ## 🚀 Quick Start
 
 ### ⚙️ Environment
