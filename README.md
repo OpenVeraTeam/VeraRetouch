@@ -25,7 +25,7 @@
 ## 🗓️ To Do List
 - [x] Release inference code.
 - [x] Release model weights.
-- [x] Release Encoder-Renderer inference code and weights.
+- [x] Release Retouch Encoder-Renderer inference code and weights.
 - [ ] 🔴 Release iOS toy deployment.
 
 ## 🚀 Quick Start
