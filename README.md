@@ -23,8 +23,8 @@
 </div> 
 
 ## 🗓️ To Do List
-- [x] Release inference code.
-- [x] Release model weights.
+- [x] Release VeraRetouch inference code.
+- [x] Release VeraRetouch model weights.
 - [x] Release Retouch Encoder-Renderer inference code and weights.
 - [ ] 🔴 Release iOS toy deployment.
 
