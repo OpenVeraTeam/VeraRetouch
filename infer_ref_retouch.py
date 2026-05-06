@@ -31,8 +31,8 @@ def main():
     parser.add_argument('--output_dir', type=str, default='./data_samples/ref_outputs', help='output dir path')
     parser.add_argument('--model_name', type=str, default='RetouchRenderer_Resnet18Encoder_InputCatMixedCBAM')
     parser.add_argument('--input_img_path', type=str, default='./data_samples/ref_inputs/sample.jpg')
-    parser.add_argument('--ref_input_img_path', type=str, default='./data_samples/ref_inputs/ref/before.jpg')
-    parser.add_argument('--ref_target_img_path', type=str, default='./data_samples/ref_inputs/ref/after.jpg')
+    parser.add_argument('--ref_before_img_path', type=str, default='./data_samples/ref_inputs/ref/before.jpg')
+    parser.add_argument('--ref_after_img_path', type=str, default='./data_samples/ref_inputs/ref/after.jpg')
     parser.add_argument("--chunk", type=int, default=-1, help="Enable when GPU memory is insufficient. The renderer will process large images in chunks. Recommended value: 262144 (512*512)")
     args = parser.parse_args()
     os.makedirs(args.output_dir, exist_ok=True)
@@ -48,8 +48,8 @@ def main():
     model.eval()
     with torch.no_grad():
         input_img = input_img_preprocess(args.input_img_path).to(device)
-        ref_input_img = ref_img_preprocess(args.ref_input_img_path).to(device)
-        ref_target_img = ref_img_preprocess(args.ref_target_img_path).to(device)
+        ref_input_img = ref_img_preprocess(args.ref_before_img_path).to(device)
+        ref_target_img = ref_img_preprocess(args.ref_after_img_path).to(device)
         mask = torch.tensor([1.0, 1.0, 1.0]).unsqueeze(0).to(device)
         save_name = os.path.basename(args.input_img_path).split('.')[0] + '.png'
 
