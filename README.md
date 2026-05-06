@@ -27,7 +27,7 @@
 
 ## 🗓️ To Do List
 - [x] Release inference code.
-- [ ] 🔴 Release model weights.
+- [x] Release model weights.
 - [ ] 🔴 Release iOS toy deployment.
 
 ## 🚀 Quick Start
