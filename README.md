@@ -19,7 +19,7 @@
 
 &nbsp;&nbsp;<br>
 <a href='https://arxiv.org/abs/2604.27375'><img src='https://img.shields.io/badge/arXiv-2411.18263-b31b1b.svg'></a> &nbsp;&nbsp;
-<a href="https://apollo-yi.github.io/VeraRetouch/">🔗 Project Page</a> &nbsp;
+<a href='https://apollo-yi.github.io/VeraRetouch/'><img src='https://img.shields.io/badge/Project-Page-green'></a> &nbsp;
 </div> 
 
 ## 🗓️ To Do List
