@@ -32,6 +32,15 @@
 
 ![overview](assets/teaser.png)
 
+## Highlights
+<table>
+<tr>
+    <td><img src="assets/Auto.gif" alt="Auto Mode"></td>
+    <td><img src="assets/Style.gif" alt="Style Mode"></td>
+    <td><img src="assets/Param.gif" alt="Param Mode"></td>
+</tr>
+</table>
+
 ## 🚀 Quick Start
 
 ### ⚙️ Environment
