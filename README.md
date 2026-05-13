@@ -35,11 +35,27 @@
 * 🔥 Unified support for auto, style, and parameter retouching.
 * 🔥 AetherRetouch-1M+ for large-scale professional supervision.
 
-<table>
+<!-- <table>
 <tr>
     <td><img src="assets/Auto.gif" alt="Auto Mode"></td>
     <td><img src="assets/Style.gif" alt="Style Mode"></td>
     <td><img src="assets/Param.gif" alt="Param Mode"></td>
+</tr>
+</table> -->
+<table>
+<tr>
+    <td align="center">
+        <img src="assets/Auto.gif" alt="Auto Mode"><br>
+        <strong>Auto Mode</strong>
+    </td>
+    <td align="center">
+        <img src="assets/Style.gif" alt="Style Mode"><br>
+        <strong>Style Mode</strong>
+    </td>
+    <td align="center">
+        <img src="assets/Param.gif" alt="Param Mode"><br>
+        <strong>Param Mode</strong>
+    </td>
 </tr>
 </table>
 
