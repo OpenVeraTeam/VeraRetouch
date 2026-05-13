@@ -28,11 +28,13 @@
 - [x] Release Retouch Encoder-Renderer inference code and weights.
 - [ ] 🔴 Release iOS toy deployment.
 
-## 🎬 <a name="overview"></a>Overview
+## 🌟 Highlights
+* 🔥 Lightweight design for controllable, interpretable mobile deployment.
+* 🔥 Free-resolution input for flexible retouching across diverse image sizes.
+* 🔥 Fully differentiable renderer for direct pixel-level training.
+* 🔥 Unified support for auto, style, and parameter retouching.
+* 🔥 AetherRetouch-1M+ for large-scale professional supervision.
 
-![overview](assets/teaser.png)
-
-## Highlights
 <table>
 <tr>
     <td><img src="assets/Auto.gif" alt="Auto Mode"></td>
@@ -40,6 +42,12 @@
     <td><img src="assets/Param.gif" alt="Param Mode"></td>
 </tr>
 </table>
+
+## 🎬 <a name="overview"></a>Overview
+
+![overview](assets/Model-Structure.png)
+
+Reasoning photo retouching has gained significant traction, requiring models to analyze image defects, give reasoning processes, and execute precise retouching enhancements. However, existing approaches often rely on non-differentiable external software, creating optimization barriers and suffering from high parameter redundancy and limited generalization. To address these challenges, we propose VeraRetouch, a lightweight and fully differentiable framework for multi-task photo retouching. We employ a 0.5B Vision-Language Model (VLM) as the central intelligence to formulate retouching plans based on instructions and scene semantics. Furthermore, we develop a fully differentiable Retouch Renderer that replaces external tools, enabling direct end-to-end pixel-level training through decoupled control latents for lighting, global color, and specific color adjustments. To overcome data scarcity, we introduce AetherRetouch-1M+, the first million-scale dataset for professional retouching, constructed via a new inverse degradation workflow. Furthermore, we propose DAPO-AE, a reinforcement learning post-training strategy that enhances autonomous aesthetic cognition. Extensive experiments demonstrate that VeraRetouch achieves state-of-the-art performance across multiple benchmarks while maintaining a significantly smaller footprint, enabling mobile deployment.
 
 ## 🚀 Quick Start
 
