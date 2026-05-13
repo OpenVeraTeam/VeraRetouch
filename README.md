@@ -58,6 +58,7 @@
     </td>
 </tr>
 </table>
+<p align="center">(Demo videos play at 3x speed)</p>
 
 ## 🎬 <a name="overview"></a>Overview
 
