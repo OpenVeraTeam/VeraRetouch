@@ -144,6 +144,17 @@ python infer_ref_retouch.py --pretrained_path ./checkpoints/encoder_renderer.pth
 ## 📲 Toy IOS depolyment
 Comming soon...
 
+## 📘 License
+```
+This repository is made available for non-commercial academic and research use only.
+
+The materials are licensed under the Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0). Redistribution and adaptation are permitted for non-commercial purposes with appropriate attribution.
+
+Commercial use, including use in commercial products, services, or datasets, is not permitted.
+
+See the [LICENSE](./LICENSE) file for details.
+```
+
 ## <a name="citation"></a>🎓 Citation
 ```
 @article{guo2026veraretouch,
