@@ -146,13 +146,10 @@ Comming soon...
 
 ## 📘 License
 ```
-This repository is made available for non-commercial academic and research use only.
+The code is licensed under Apache License 2.0.
 
-The materials are licensed under the Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0). Redistribution and adaptation are permitted for non-commercial purposes with appropriate attribution.
-
-Commercial use, including use in commercial products, services, or datasets, is not permitted.
-
-See the [LICENSE](./LICENSE) file for details.
+The model weights are released for academic research purposes only.  
+Commercial use of the model weights or any derived models is strictly prohibited.
 ```
 
 ## <a name="citation"></a>🎓 Citation
