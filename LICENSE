@@ -1,15 +1,17 @@
-Creative Commons Attribution-NonCommercial 4.0 International
+License:
+  Copyright (c) 2026 the authors.
+  This repository contains code and model weights, which are licensed separately.
 
-Copyright (c) 2026 the authors.
+Code:
+  The code in this repository is licensed under the Apache License 2.0.
+  You may use, modify, and distribute the code under the terms of the Apache License 2.0.
+  
+  Full license text:
+  https://www.apache.org/licenses/LICENSE-2.0
 
-This work is licensed under the Creative Commons Attribution-NonCommercial
-4.0 International License.
-
-You are free to share and adapt the material for non-commercial purposes,
-provided that appropriate credit is given, a link to the license is provided,
-and any changes are indicated.
-
-Commercial use is not permitted.
-
-Full license text:
-https://creativecommons.org/licenses/by-nc/4.0/legalcode
+Model Weights:
+  The model weights, checkpoints, and any derived models are provided for **academic research purposes only.
+  
+  Commercial use of the model weights is strictly prohibited.
+  
+  You may not use the model weights, or any models derived from them, for commercial products, services, APIs, or business purposes without prior written permission from the authors.
