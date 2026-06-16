@@ -190,6 +190,11 @@ Finally, select your target device in Xcode, then build and run the project.
 
 2. **Live Photo support is now available!**  
    You can upload Live Photos for preview, select a reference frame, and the system will apply retouching consistently across the entire Live Photo sequence.
+<p align="center">
+  <img src="./assets/LivePhoto.gif" width="400"/>
+</p>
+
+> **Note:** If you need to reselect the key photo, we recommend trying [LiveMoments](https://github.com/OpenVeraTeam/LiveMoments).
 
 3. We have integrated **Reference Retouch directly into the app**.  
    You can now perform Ref-Retouch operations directly within the dedicated interface.
