@@ -1,0 +1,749 @@
+//
+// For licensing see accompanying LICENSE file.
+// Copyright (C) 2025 Apple Inc. All Rights Reserved.
+//
+
+import CoreImage
+import CoreML
+import Foundation
+import MLX
+import MLXFast
+import MLXLMCommon
+import MLXNN
+import MLXVLM
+import Tokenizers
+
+// VeraRetouch is Qwen2VL with a custom vision tower.
+
+// MARK: - Common
+
+/// Rotates half the hidden dims of the input
+private func rotateHalf(_ x: MLXArray) -> MLXArray {
+    let index = x.dim(-1) / 2
+    let x1 = x[.ellipsis, 0 ..< index]
+    let x2 = x[.ellipsis, index...]
+    return concatenated([-x2, x1], axis: -1)
+}
+
+// MARK: - Language
+
+private enum Language {
+
+    /// Applies Rotary Position Embedding with Multimodal Sections to the query and key tensors
+    static private func applyMultimodalRotaryPositionEmbedding(
+        q: MLXArray, k: MLXArray, cos: MLXArray, sin: MLXArray,
+        positionIds: MLXArray, mropeSection: [Int]
+    ) -> (MLXArray, MLXArray) {
+        var cos = cos[positionIds]
+        var sin = sin[positionIds]
+
+        cos =
+            concatenated(
+                // [m[i % 3] for i, m in enumerate(mx.split(cos, mrope_section, axis=-1))]
+                split(cos, indices: mropeSection, axis: -1).enumerated().map { i, m in m[i % 3] },
+                axis: -1
+            )[0..., .newAxis, 0..., 0...]
+
+        sin =
+            concatenated(
+                split(sin, indices: mropeSection, axis: -1).enumerated().map { i, m in m[i % 3] },
+                axis: -1
+            )[0..., .newAxis, 0..., 0...]
+
+        // Apply rotary embedding
+        let qEmbed = (q * cos) + (rotateHalf(q) * sin)
+        let kEmbed = (k * cos) + (rotateHalf(k) * sin)
+        return (qEmbed, kEmbed)
+    }
+
+    fileprivate class Attention: Module {
+
+        let heads: Int
+        let kvHeads: Int
+        let headDim: Int
+        let scale: Float
+        let mropeSection: [Int]
+
+        @ModuleInfo(key: "q_proj") var wq: Linear
+        @ModuleInfo(key: "k_proj") var wk: Linear
+        @ModuleInfo(key: "v_proj") var wv: Linear
+        @ModuleInfo(key: "o_proj") var wo: Linear
+
+        @ModuleInfo(key: "rotary_emb") var rotaryEmbedding: RoPE
+
+        public init(_ args: VeraRetouchConfiguration.TextConfiguration) {
+            let dim = args.hiddenSize
+            self.heads = args.attentionHeads
+            self.kvHeads = args.kvHeads
+            self.headDim = dim / heads
+            self.scale = pow(Float(headDim), -0.5)
+
+            self._wq.wrappedValue = Linear(dim, heads * headDim, bias: true)
+            self._wk.wrappedValue = Linear(dim, kvHeads * headDim, bias: true)
+            self._wv.wrappedValue = Linear(dim, kvHeads * headDim, bias: true)
+            self._wo.wrappedValue = Linear(heads * headDim, dim, bias: false)
+
+            if let v = args.ropeScaling?["mrope_section"], let array = v.asInts() {
+                // mrope_section = np.cumsum(mrope_section * 2)[:-1].tolist()
+                self.mropeSection = sequence(state: (0, array.makeIterator())) { state in
+                    if let v = state.1.next() {
+                        // note the *2
+                        state.0 += v * 2
+                        return state.0
+                    } else {
+                        return nil
+                    }
+                }.dropLast()
+            } else {
+                fatalError("rope_scaling['mrope_section'] must be an array of integers")
+            }
+
+            self._rotaryEmbedding.wrappedValue = RoPE(
+                dimensions: headDim, traditional: args.ropeTraditional, base: args.ropeTheta)
+        }
+
+        public func callAsFunction(
+            _ x: MLXArray, mask: MLXArray? = nil, cache: KVCache?
+        ) -> MLXArray {
+            let (B, L) = (x.dim(0), x.dim(1))
+
+            var queries = wq(x)
+            var keys = wk(x)
+            var values = wv(x)
+
+            // prepare the queries, keys and values for the attention computation
+            queries = queries.reshaped(B, L, heads, headDim).transposed(0, 2, 1, 3)
+            keys = keys.reshaped(B, L, kvHeads, headDim).transposed(0, 2, 1, 3)
+            values = values.reshaped(B, L, kvHeads, headDim).transposed(0, 2, 1, 3)
+
+            let offset = cache?.offset ?? 0
+            let mask = mask?[0..., 0 ..< keys.dim(-2)]
+
+            queries = rotaryEmbedding(queries, offset: offset)
+            keys = rotaryEmbedding(keys, offset: offset)
+
+            if let cache {
+                (keys, values) = cache.update(keys: keys, values: values)
+            }
+
+            let output = MLXFast.scaledDotProductAttention(
+                queries: queries, keys: keys, values: values, scale: scale, mask: mask
+            )
+            .transposed(0, 2, 1, 3)
+            .reshaped(B, L, -1)
+
+            return wo(output)
+        }
+    }
+
+    fileprivate class MLP: Module, UnaryLayer {
+
+        @ModuleInfo(key: "gate_proj") var gate: Linear
+        @ModuleInfo(key: "down_proj") var down: Linear
+        @ModuleInfo(key: "up_proj") var up: Linear
+
+        public init(dimensions: Int, hiddenDimensions: Int) {
+            self._gate.wrappedValue = Linear(dimensions, hiddenDimensions, bias: false)
+            self._down.wrappedValue = Linear(hiddenDimensions, dimensions, bias: false)
+            self._up.wrappedValue = Linear(dimensions, hiddenDimensions, bias: false)
+        }
+
+        public func callAsFunction(_ x: MLXArray) -> MLXArray {
+            down(silu(gate(x)) * up(x))
+        }
+    }
+
+    fileprivate class VeraRetouchDecoderLayer: Module {
+
+        @ModuleInfo(key: "self_attn") var attention: Attention
+        let mlp: MLP
+
+        @ModuleInfo(key: "input_layernorm") var inputLayerNorm: RMSNorm
+        @ModuleInfo(key: "post_attention_layernorm") var postAttentionLayerNorm: RMSNorm
+
+        public init(_ args: VeraRetouchConfiguration.TextConfiguration) {
+            self._attention.wrappedValue = Attention(args)
+            self.mlp = MLP(dimensions: args.hiddenSize, hiddenDimensions: args.intermediateSize)
+            self._inputLayerNorm.wrappedValue = RMSNorm(
+                dimensions: args.hiddenSize, eps: args.rmsNormEps)
+            self._postAttentionLayerNorm.wrappedValue = RMSNorm(
+                dimensions: args.hiddenSize, eps: args.rmsNormEps)
+        }
+
+        public func callAsFunction(
+            _ x: MLXArray, mask: MLXArray? = nil, cache: KVCache?
+        ) -> MLXArray {
+            var r = attention(inputLayerNorm(x), mask: mask, cache: cache)
+            let h = x + r
+            r = mlp(postAttentionLayerNorm(h))
+            let out = h + r
+            return out
+        }
+    }
+
+    fileprivate class Qwen2Model: Module {
+
+        @ModuleInfo(key: "embed_tokens") var embedTokens: Embedding
+
+        fileprivate let layers: [VeraRetouchDecoderLayer]
+        fileprivate let norm: RMSNorm
+
+        public init(_ args: VeraRetouchConfiguration.TextConfiguration) {
+            precondition(args.vocabularySize > 0)
+
+            self._embedTokens.wrappedValue = Embedding(
+                embeddingCount: args.vocabularySize, dimensions: args.hiddenSize)
+
+            self.layers = (0 ..< args.hiddenLayers)
+                .map { _ in
+                    VeraRetouchDecoderLayer(args)
+                }
+            self.norm = RMSNorm(dimensions: args.hiddenSize, eps: args.rmsNormEps)
+        }
+
+        public func callAsFunction(
+            _ inputs: MLXArray?, cache: [KVCache]? = nil, inputEmbedding: MLXArray? = nil
+        ) -> MLXArray {
+            var h: MLXArray
+            if let inputEmbedding {
+                h = inputEmbedding
+            } else if let inputs {
+                h = embedTokens(inputs)
+            } else {
+                fatalError("one of inputs or inputEmbedding must be non-nil")
+            }
+
+            let mask = createAttentionMask(h: h, cache: cache)
+
+            for (i, layer) in layers.enumerated() {
+                h = layer(h, mask: mask, cache: cache?[i])
+            }
+
+            return norm(h)
+        }
+    }
+
+    fileprivate class LanguageModel: Module, KVCacheDimensionProvider {
+        @ModuleInfo var model: Qwen2Model
+        @ModuleInfo(key: "lm_head") var lmHead: Linear?
+
+        var kvHeads: [Int]
+
+        public init(_ args: VeraRetouchConfiguration.TextConfiguration) {
+            self.model = Qwen2Model(args)
+
+            if !args.tieWordEmbeddings {
+                _lmHead.wrappedValue = Linear(args.hiddenSize, args.vocabularySize, bias: false)
+            }
+
+            self.kvHeads = (0 ..< args.hiddenLayers).map { _ in args.kvHeads }
+        }
+
+        public func callAsFunction(
+            _ inputs: MLXArray?, cache: [KVCache]? = nil, inputEmbedding: MLXArray? = nil
+        ) -> LMOutput {
+            var out = model(inputs, cache: cache, inputEmbedding: inputEmbedding)
+            if let lmHead {
+                out = lmHead(out)
+            } else {
+                out = model.embedTokens.asLinear(out)
+            }
+            return LMOutput(logits: out)
+        }
+    }
+}
+
+// MARK: - Vision
+
+private enum Vision {
+
+    fileprivate class VisionModelCoreML {
+
+        let lock = NSLock()
+        var _model: fastvithd?
+
+        init() {
+        }
+
+        func load() throws -> fastvithd {
+            try lock.withLock {
+                if let model = _model { return model }
+                let model = try fastvithd()
+                _model = model
+                return model
+            }
+        }
+
+        public func model() -> fastvithd {
+            try! load()
+        }
+
+        public func encode(_ image: MLXArray) -> MLXArray {
+            // MLMultiArray requires mutable input data
+            var (data, strides) = {
+                let arrayData = image.asType(.float32).asData(access: .noCopyIfContiguous)
+                return (arrayData.data, arrayData.strides)
+            }()
+
+            precondition(image.ndim == 4)
+            precondition(image.dim(0) == 1)
+            precondition(image.dim(1) == 3)
+
+            let h = NSNumber(value: image.dim(2))
+            let w = NSNumber(value: image.dim(3))
+
+            return data.withUnsafeMutableBytes { (ptr: UnsafeMutableRawBufferPointer) in
+                // wrap the backing of the MLXArray
+                let array = try! MLMultiArray(
+                    dataPointer: ptr.baseAddress!, shape: [1, 3, h, w], dataType: .float32,
+                    strides: strides.map { .init(value: $0) })
+
+                // inference
+                let output = try! model().prediction(images: array)
+                precondition(output.image_features.shape == [1, 256, 3072])
+                precondition(output.image_features.dataType == .float32)
+                return output.image_features.withUnsafeBytes { ptr in
+                    MLXArray(ptr, [1, 256, 3072], type: Float32.self)
+                }
+            }
+        }
+    }
+
+    fileprivate class VisionModel: Module {
+
+        let model = VisionModelCoreML()
+
+        public override init() {}
+
+        public func callAsFunction(_ hiddenStates: MLXArray, gridThw: [THW]) -> MLXArray {
+            model.encode(hiddenStates)
+        }
+    }
+}
+
+// MARK: - Processor
+
+/// VeraRetouch `UserInputProcessor`.
+///
+/// This is meant to be used with ``VeraRetouch`` and is typically created by ``VLMModelFactory``.
+public class VeraRetouchProcessor: UserInputProcessor {
+
+    private let config: VeraRetouchProcessorConfiguration
+    private let imageProcessingConfig: VeraRetouchPreProcessorConfiguration
+    private let tokenizer: any Tokenizer
+
+    public init(_ config: VeraRetouchPreProcessorConfiguration, tokenizer: any Tokenizer) {
+        self.config = VeraRetouchProcessorConfiguration()
+        self.imageProcessingConfig = config
+        self.tokenizer = tokenizer
+    }
+
+    public func preprocess(image: CIImage, processing: UserInput.Processing?) throws -> (
+        MLXArray, THW
+    ) {
+        // first apply the user requested resizing, etc. if any
+        var image = MediaProcessingExtensions.apply(image, processing: processing)
+
+        // Samantha alignment: resize longest edge to target, then expand to square.
+        let targetSide = max(
+            imageProcessingConfig.cropSize.width,
+            imageProcessingConfig.cropSize.height
+        )
+        let resizedSize = MediaProcessingExtensions.sizeWithLongestEdge(
+            image.extent.size, target: targetSide
+        )
+        image = MediaProcessingExtensions.resampleBicubic(image, to: resizedSize)
+        image = MediaProcessingExtensions.expand2square(
+            image,
+            side: targetSide,
+            background: imageProcessingConfig.imageMeanTuple
+        )
+        // Match Python/HF semantics: sRGB uint8 readback -> /255 -> per-channel normalize.
+        var array = MediaProcessingExtensions.asPlanarMLXArraySRGB8(image)
+        let mean = imageProcessingConfig.imageMean
+        let std = imageProcessingConfig.imageStd
+        if mean.count == 3, std.count == 3,
+            !(mean[0] == 0 && mean[1] == 0 && mean[2] == 0
+                && std[0] == 1 && std[1] == 1 && std[2] == 1)
+        {
+            var values = array.asArray(Float32.self)
+            let h = array.dim(2)
+            let w = array.dim(3)
+            let hw = h * w
+            for c in 0 ..< 3 {
+                let m = Float32(mean[c])
+                let s = Float32(std[c])
+                let base = c * hw
+                for i in 0 ..< hw {
+                    values[base + i] = (values[base + i] - m) / s
+                }
+            }
+            array = MLXArray(values, array.shape)
+        }
+        return (array, .init(0, array.dim(2), array.dim(3)))
+    }
+
+    public func prepare(prompt: UserInput.Prompt, imageTHW: THW?) -> String {
+        var messages = prompt.asMessages()
+        if messages[0]["role"] != "system" {
+            messages.insert(["role": "system", "content": "You are a helpful assistant."], at: 0)
+        }
+
+        let lastIndex = messages.count - 1
+        var lastMessage = messages[lastIndex]["content"] ?? ""
+
+        // processing_llava.py
+        if let imageTHW {
+            let height = imageTHW.h
+            let width = imageTHW.w
+            let patchSize = config.patchSize
+
+            var numImageTokens =
+                (height / patchSize) * (width / patchSize) + config.numAdditionalImageTokens
+
+            if config.visionFeatureSelectStrategy == .default {
+                numImageTokens -= 1
+            }
+
+            let imagePrefix = Array(repeating: config.imageToken, count: numImageTokens)
+                .joined()
+            if lastMessage.isEmpty {
+                lastMessage = imagePrefix
+            } else {
+                lastMessage = imagePrefix + "\n" + lastMessage
+            }
+        }
+
+        messages[lastIndex]["content"] = lastMessage
+
+        return
+            messages
+            .map {
+                "<|im_start|>\($0["role"] ?? "user")\n\($0["content"] ?? "")<|im_end|>"
+            }
+            .joined(separator: "\n")
+            + "\n<|im_start|>assistant\n"
+    }
+
+    public func prepare(input: UserInput) throws -> LMInput {
+        if input.images.isEmpty {
+            // just a straight text prompt
+            let prompt = prepare(prompt: input.prompt, imageTHW: nil)
+            print("[Prompt][App] full_prompt=\n\(prompt)")
+            let promptTokens = tokenizer.encode(text: prompt)
+            return LMInput(tokens: MLXArray(promptTokens))
+        }
+
+        if input.images.count > 1 {
+            throw VLMError.singleImageAllowed
+        }
+
+        let (pixels, thw) = try preprocess(
+            image: input.images[0].asCIImage(), processing: input.processing)
+        let image = LMInput.ProcessedImage(pixels: pixels, imageGridThw: [thw])
+
+        let prompt = prepare(prompt: input.prompt, imageTHW: thw)
+        print("[Prompt][App] full_prompt=\n\(prompt)")
+        let promptTokens = tokenizer.encode(text: prompt)
+        let promptArray = MLXArray(promptTokens).expandedDimensions(axis: 0)
+        let mask = ones(like: promptArray).asType(.int8)
+
+        return LMInput(text: .init(tokens: promptArray, mask: mask), image: image)
+    }
+
+}
+
+// MARK: - Model
+
+private class VeraRetouchMultiModalProjector: Module, UnaryLayer {
+
+    @ModuleInfo(key: "linear_0") var linear0: Linear
+    @ModuleInfo(key: "gelu") var gelu: GELU
+    @ModuleInfo(key: "linear_2") var linear2: Linear
+
+    public init(_ config: VeraRetouchConfiguration) {
+        self._linear0.wrappedValue = Linear(
+            config.visionConfiguration.hiddenSize,
+            config.textConfiguration.hiddenSize,
+            bias: true)
+        self._gelu.wrappedValue = GELU()
+        self._linear2.wrappedValue = Linear(
+            config.textConfiguration.hiddenSize,
+            config.textConfiguration.hiddenSize,
+            bias: true)
+    }
+
+    public func callAsFunction(_ x: MLXArray) -> MLXArray {
+        var x = linear0(x)
+        x = gelu(x)
+        x = linear2(x)
+        return x
+    }
+}
+
+/// VeraRetouch
+///
+/// This is typically created by ``VLMModelFactory``.
+public class VeraRetouch: Module, VLMModel, KVCacheDimensionProvider {
+
+    static public var modelConfiguration: ModelConfiguration {
+        let bundle = Bundle(for: VeraRetouch.self)
+        let url = bundle.url(forResource: "config", withExtension: "json")!
+            .resolvingSymlinksInPath()
+            .deletingLastPathComponent()
+        return ModelConfiguration(directory: url)
+    }
+
+    static public func register(modelFactory: VLMModelFactory) {
+        modelFactory.typeRegistry.registerModelType("llava_qwen2") { url in
+            let configuration = try JSONDecoder().decode(
+                VeraRetouchConfiguration.self, from: Data(contentsOf: url))
+            return VeraRetouch(configuration)
+        }
+        // Samantha checkpoints may use a dedicated model_type.
+        modelFactory.typeRegistry.registerModelType("samantha") { url in
+            let configuration = try JSONDecoder().decode(
+                VeraRetouchConfiguration.self, from: Data(contentsOf: url))
+            return VeraRetouch(configuration)
+        }
+        // Keep compatibility with converted checkpoints that use `fastvlm`.
+        modelFactory.typeRegistry.registerModelType("fastvlm") { url in
+            let configuration = try JSONDecoder().decode(
+                VeraRetouchConfiguration.self, from: Data(contentsOf: url))
+            return VeraRetouch(configuration)
+        }
+
+        modelFactory.processorRegistry.registerProcessorType("LlavaProcessor") { url, tokenizer in
+            let configuration = try JSONDecoder().decode(
+                VeraRetouchPreProcessorConfiguration.self, from: Data(contentsOf: url))
+            return VeraRetouchProcessor(configuration, tokenizer: tokenizer)
+        }
+    }
+
+    @ModuleInfo(key: "vision_tower") private var visionModel: Vision.VisionModel
+    @ModuleInfo(key: "language_model") private var languageModel: Language.LanguageModel
+    @ModuleInfo(key: "multi_modal_projector") private var multiModalProjector:
+        VeraRetouchMultiModalProjector
+
+    public let config: VeraRetouchConfiguration
+
+    public var vocabularySize: Int { config.baseConfiguration.vocabularySize }
+    public var kvHeads: [Int] { languageModel.kvHeads }
+
+    public func loraLinearLayers() -> MLXLMCommon.LoRALinearLayers {
+        languageModel.model.layers.map { ($0.attention, ["q_proj", "v_proj"]) }
+    }
+
+    public init(_ config: VeraRetouchConfiguration) {
+        self.config = config
+        self._visionModel.wrappedValue = Vision.VisionModel()
+        self._languageModel.wrappedValue = Language.LanguageModel(config.textConfiguration)
+        self._multiModalProjector.wrappedValue = VeraRetouchMultiModalProjector(config)
+    }
+
+    private func inputEmbeddings(inputIds: MLXArray, pixelValues: MLXArray?, gridThw: [THW]?)
+        -> MLXArray
+    {
+        guard let pixelValues, let gridThw else {
+            return languageModel(inputIds).logits
+        }
+
+        // Get the input embeddings from the language model
+        let inputEmbeds = languageModel.model.embedTokens(inputIds)
+
+        // Get the ouptut hidden states from the vision model
+        let imageFeaturesCoreML = self.visionModel(pixelValues, gridThw: gridThw)
+        let imageFeatures = multiModalProjector(imageFeaturesCoreML)
+
+        // Insert special image tokens in the input_ids
+        return mergeInputIdsWithImageFeatures(
+            inputIds: inputIds, inputEmbeds: inputEmbeds, imageFeatures: imageFeatures)
+    }
+
+    private func mergeInputIdsWithImageFeatures(
+        inputIds: MLXArray, inputEmbeds: MLXArray, imageFeatures: MLXArray
+    ) -> MLXArray {
+        let imageTokenIndex = config.baseConfiguration.imageTokenId
+        
+        var imageIndices = [Int]()
+        for (i, v) in inputIds.asArray(Int.self).enumerated() {
+            if v == imageTokenIndex {
+                imageIndices.append(i)
+            }
+        }
+        
+        inputEmbeds[0..., MLXArray(imageIndices), 0...] = imageFeatures
+        return inputEmbeds
+    }
+
+    public func prepare(_ input: LMInput, cache: [any KVCache], windowSize: Int?) throws
+        -> PrepareResult
+    {
+        let gridThw = input.image?.imageGridThw
+
+        let dtype = DType.float32
+        let pixels = input.image?.pixels.asType(dtype)
+
+        let inputEmbeddings = self.inputEmbeddings(
+            inputIds: input.text.tokens, pixelValues: pixels, gridThw: gridThw)
+
+        let result = languageModel(nil, cache: cache, inputEmbedding: inputEmbeddings)
+
+        return .logits(result)
+    }
+
+    public func callAsFunction(_ inputs: MLXArray, cache: [any KVCache]?) -> MLXArray {
+        languageModel(inputs, cache: cache).logits
+    }
+
+    /// Runs a full forward pass over prompt + generated tokens and returns
+    /// final-layer hidden states for all positions.
+    public func finalHiddenStates(input: LMInput, generatedTokens: [Int]) -> ([Int], MLXArray) {
+        let promptTokens = input.text.tokens.asArray(Int.self)
+        let fullTokens = promptTokens + generatedTokens
+
+        let tokenArray = MLXArray(fullTokens).expandedDimensions(axis: 0)
+        let pixels = input.image?.pixels.asType(.float32)
+        let gridThw = input.image?.imageGridThw
+        let embeddings = self.inputEmbeddings(
+            inputIds: tokenArray, pixelValues: pixels, gridThw: gridThw)
+        let hiddenStates = languageModel.model(nil, cache: nil, inputEmbedding: embeddings)
+        return (fullTokens, hiddenStates)
+    }
+
+    public func sanitize(weights: [String: MLXArray]) -> [String: MLXArray] {
+        _ = try? visionModel.model.load()
+
+        return weights
+    }
+}
+
+// MARK: - Configuration
+
+/// Configuration for ``VeraRetouch``
+public struct VeraRetouchConfiguration: Codable, Sendable {
+
+    public struct VisionConfiguration: Codable, Sendable {
+        public let hiddenSize: Int
+
+        enum CodingKeys: String, CodingKey {
+            case hiddenSize = "mm_hidden_size"
+        }
+    }
+
+    public struct TextConfiguration: Codable, Sendable {
+        public let modelType: String
+        public let hiddenSize: Int
+        public let hiddenLayers: Int
+        public let intermediateSize: Int
+        public let attentionHeads: Int
+        private let _rmsNormEps: Float?
+        public var rmsNormEps: Float { _rmsNormEps ?? 1e-6 }
+        public let vocabularySize: Int
+        public let kvHeads: Int
+        private let _maxPositionEmbeddings: Int?
+        public var maxpPositionEmbeddings: Int { _maxPositionEmbeddings ?? 32768 }
+        private let _ropeTheta: Float?
+        public var ropeTheta: Float { _ropeTheta ?? 1_000_000 }
+        private let _ropeTraditional: Bool?
+        public var ropeTraditional: Bool { _ropeTraditional ?? false }
+        public let _ropeScaling: [String: StringOrNumber]?
+        public var ropeScaling: [String: StringOrNumber]? {
+            _ropeScaling ?? ["mrope_section": .ints([2, 1, 1])]
+        }
+        private let _tieWordEmbeddings: Bool?
+        public var tieWordEmbeddings: Bool { _tieWordEmbeddings ?? true }
+
+        enum CodingKeys: String, CodingKey {
+            case modelType = "model_type"
+            case hiddenSize = "hidden_size"
+            case hiddenLayers = "num_hidden_layers"
+            case intermediateSize = "intermediate_size"
+            case attentionHeads = "num_attention_heads"
+            case _rmsNormEps = "rms_norm_eps"
+            case vocabularySize = "vocab_size"
+            case kvHeads = "num_key_value_heads"
+            case _maxPositionEmbeddings = "max_position_embeddings"
+            case _ropeTheta = "rope_theta"
+            case _ropeTraditional = "rope_traditional"
+            case _ropeScaling = "rope_scaling"
+            case _tieWordEmbeddings = "tie_word_embeddings"
+        }
+    }
+
+    public struct BaseConfiguration: Codable, Sendable {
+        public let modelType: String
+        public let vocabularySize: Int
+        public let imageTokenId: Int
+        public let hiddenSize: Int
+
+        enum CodingKeys: String, CodingKey {
+            case modelType = "model_type"
+            case vocabularySize = "vocab_size"
+            case imageTokenId = "image_token_index"
+            case hiddenSize = "hidden_size"
+        }
+    }
+
+    public let visionConfiguration: VisionConfiguration
+    public let textConfiguration: TextConfiguration
+    public let baseConfiguration: BaseConfiguration
+
+    public init(from decoder: any Swift.Decoder) throws {
+        // these are overlaid in the top level
+        self.visionConfiguration = try VisionConfiguration(from: decoder)
+        self.textConfiguration = try TextConfiguration(from: decoder)
+        self.baseConfiguration = try BaseConfiguration(from: decoder)
+    }
+}
+
+/// Configuration for ``VeraRetouchProcessor``
+public struct VeraRetouchPreProcessorConfiguration: Codable, Sendable {
+
+    public struct CropSize: Codable, Sendable {
+        let width: Int
+        let height: Int
+
+        var size: CGSize { .init(width: CGFloat(width), height: CGFloat(height)) }
+    }
+
+    public struct Size: Codable, Sendable {
+        let shortestEdge: Int
+
+        enum CodingKeys: String, CodingKey {
+            case shortestEdge = "shortest_edge"
+        }
+    }
+
+    public var imageMean: [CGFloat]
+    public var imageStd: [CGFloat]
+    public var size: Size
+    public var cropSize: CropSize
+
+    public var imageMeanTuple: (CGFloat, CGFloat, CGFloat) {
+        (imageMean[0], imageMean[1], imageMean[2])
+    }
+    public var imageStdTuple: (CGFloat, CGFloat, CGFloat) {
+        (imageStd[0], imageStd[1], imageStd[2])
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case imageMean = "image_mean"
+        case imageStd = "image_std"
+        case size
+        case cropSize = "crop_size"
+    }
+}
+
+public struct VeraRetouchProcessorConfiguration: Codable, Sendable {
+
+    public enum Strategy: Codable, Sendable {
+        case `default`
+    }
+
+    public var imageToken = "<image>"
+    public var numAdditionalImageTokens = 0
+    public var patchSize = 64
+    public var visionFeatureSelectStrategy: Strategy?
+
+}
