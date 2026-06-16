@@ -142,7 +142,7 @@ python infer_ref_retouch.py --pretrained_path ./checkpoints/encoder_renderer.pth
 ```
 
 ## 📲 Toy IOS depolyment
-Comming soon...
+We have released the macOS and iOS deployment demos! Please follow the step-by-step instructions below.
 
 ## 📘 License
 ```
