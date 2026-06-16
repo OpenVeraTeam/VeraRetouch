@@ -141,8 +141,58 @@ python infer_ref_retouch.py --pretrained_path ./checkpoints/encoder_renderer.pth
                             --chunk -1    # Enable when GPU memory is insufficient. The renderer will process large images in chunks. Recommended value: 262144 (512*512), enabling chunking will reduce inference speed. \
 ```
 
-## 📲 Toy IOS depolyment
+## 📲 iOS and macOS depolyment
 We have released the macOS and iOS deployment demos! Please follow the step-by-step instructions below.
+
+### 1. Download ML Model Weights
+
+We have released the Core ML converted model weights. Please download the appropriate version from Hugging Face:
+
+| Version | Description | Hugging Face Link |
+|---|---|---|
+| Without Quantization | Full-precision Core ML model with better performance | [Gyh68/ml-VeraRetouch](https://huggingface.co/Gyh68/ml-VeraRetouch/tree/main) |
+| INT8 Quantized | INT8 quantized Core ML model with smaller size and faster inference | [Gyh68/ml-VeraRetouch-int8](https://huggingface.co/Gyh68/ml-VeraRetouch-int8/tree/main) |
+
+> **Note:** The INT8 quantized model may lead to some performance degradation.
+
+### 2. Move the downloaded weights directory
+
+After downloading the model weights, move the directory into the `./ml-veraretouch/VeraRetouchCore` and rename it to `model`:
+
+```bash
+cd VeraRetouch
+mv <downloaded_weights_dir> ./ml-veraretouch/VeraRetouchCore/model
+```
+
+### 3. Prepare the Xcode App and Open the Project
+
+Please install Xcode on your Mac, then open the `./ml-veraretouch` project in Xcode.
+
+Update the package dependencies as follows:
+
+| Package | Repository | Dependency Rule | Version |
+|---|---|---|---|
+| `mlx-swift` | `https://github.com/ml-explore/mlx-swift` | Up to Next Major Version | `0.21.2` |
+| `mlx-libraries` | `https://github.com/ml-explore/mlx-swift-examples` | Exact Version | `2.21.2` |
+| `swift-transformers` | `https://github.com/huggingface/swift-transformers` | Exact Version | `0.1.18` |
+
+### 4. Build and Run
+
+Finally, select your target device in Xcode, then build and run the project.
+
+> **Note:** The project has been successfully tested on MacBook Air (M4) and iPhone 13 Pro Max.
+
+## 🎁 What’s New in iOS & macOS Deployment?
+
+1. We introduce **3D LUT acceleration** to optimize the performance of the Retouch Renderer.  
+   Specifically, we first use the Retouch Renderer to generate a 3D LUT, and then apply the LUT for image processing.  
+   This significantly improves efficiency for high-resolution images with minimal quality loss.
+
+2. **Live Photo support is now available!**  
+   You can upload Live Photos for preview, select a reference frame, and the system will apply retouching consistently across the entire Live Photo sequence.
+
+3. We have integrated **Reference Retouch directly into the app**.  
+   You can now perform Ref-Retouch operations directly within the dedicated interface.
 
 ## 📘 License
 ```
