@@ -22,11 +22,23 @@
 <a href='https://apollo-yi.github.io/VeraRetouch/'><img src='https://img.shields.io/badge/Project-Page-green'></a> &nbsp;
 </div> 
 
+## 📢 News
+🔥 **2026.6.16 — Live Photo Retouch is now supported!**  
+We are excited to introduce full **Live Photo support** 🎬✨  
+Users can upload a Live Photo, select a reference frame, and apply retouching consistently across the entire temporal sequence, ensuring both visual quality and motion coherence.
+
+🚀 **2026.6.16 — macOS & iOS deployment released!**  
+We are happy to announce the first release of our **on-device deployment for macOS and iOS** 📱💻
+
+- ⚡ **3D LUT Acceleration** for significantly faster high-resolution inference with minimal quality loss
+---
+
 ## 🗓️ To Do List
 - [x] Release VeraRetouch inference code.
 - [x] Release VeraRetouch model weights.
 - [x] Release Retouch Encoder-Renderer inference code and weights.
-- [ ] 🔴 Release iOS toy deployment.
+- [x] Release iOS toy deployment.
+---
 
 ## 🌟 Highlights
 * 🔥 Lightweight design for controllable, interpretable mobile deployment.
@@ -60,11 +72,15 @@
 </table>
 <p align="center">(Demo videos play at 3x speed)</p>
 
+---
+
 ## 🎬 <a name="overview"></a>Overview
 
 ![overview](assets/Model-Structure.png)
 
 Reasoning photo retouching has gained significant traction, requiring models to analyze image defects, give reasoning processes, and execute precise retouching enhancements. However, existing approaches often rely on non-differentiable external software, creating optimization barriers and suffering from high parameter redundancy and limited generalization. To address these challenges, we propose VeraRetouch, a lightweight and fully differentiable framework for multi-task photo retouching. We employ a 0.5B Vision-Language Model (VLM) as the central intelligence to formulate retouching plans based on instructions and scene semantics. Furthermore, we develop a fully differentiable Retouch Renderer that replaces external tools, enabling direct end-to-end pixel-level training through decoupled control latents for lighting, global color, and specific color adjustments. To overcome data scarcity, we introduce AetherRetouch-1M+, the first million-scale dataset for professional retouching, constructed via a new inverse degradation workflow. Furthermore, we propose DAPO-AE, a reinforcement learning post-training strategy that enhances autonomous aesthetic cognition. Extensive experiments demonstrate that VeraRetouch achieves state-of-the-art performance across multiple benchmarks while maintaining a significantly smaller footprint, enabling mobile deployment.
+
+---
 
 ## 🚀 Quick Start
 
@@ -140,6 +156,7 @@ python infer_ref_retouch.py --pretrained_path ./checkpoints/encoder_renderer.pth
                             --input_img_path ./data_samples/ref_inputs/sample.jpg    # File path of the input image to be retouched \
                             --chunk -1    # Enable when GPU memory is insufficient. The renderer will process large images in chunks. Recommended value: 262144 (512*512), enabling chunking will reduce inference speed. \
 ```
+---
 
 ## 📲 iOS and macOS depolyment
 We have released the macOS and iOS deployment demos! Please follow the step-by-step instructions below.
@@ -181,6 +198,7 @@ Update the package dependencies as follows:
 Finally, select your target device in Xcode, then build and run the project.
 
 > **Note:** The project has been successfully tested on MacBook Air (M4) and iPhone 13 Pro Max.
+---
 
 ## 🎁 What’s New in iOS & macOS Deployment?
 
@@ -198,6 +216,7 @@ Finally, select your target device in Xcode, then build and run the project.
 
 3. We have integrated **Reference Retouch directly into the app**.  
    You can now perform Ref-Retouch operations directly within the dedicated interface.
+---
 
 ## 📘 License
 ```
@@ -206,6 +225,7 @@ The code is licensed under Apache License 2.0.
 The model weights are released for academic research purposes only.  
 Commercial use of the model weights or any derived models is strictly prohibited.
 ```
+---
 
 ## <a name="citation"></a>🎓 Citation
 ```
